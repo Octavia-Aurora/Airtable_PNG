@@ -59,30 +59,25 @@ def delete_file(file_path: str):
     """
     Deletes the file from the local server.
     """
-    time.sleep(120)  # Wait for 2 minutes (120 seconds)
     if os.path.exists(file_path):
         os.remove(file_path)
         print(f"Deleted file: {file_path}")
 
 
 @app.get("/get-file/")
-async def get_file_url(field_name: str = Query(..., description="Name of the Airtable field containing the file"),
-                       background_tasks: BackgroundTasks = BackgroundTasks()):
+async def get_file_url(field_name: str = Query(..., description="Name of the Airtable field containing the file")):
     """
     Endpoint to retrieve a file from Airtable and provide a public URL to access it.
     """
     try:
         file_path, file_name = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
         if file_path and os.path.exists(file_path):
-            # Add the file deletion task
-            background_tasks.add_task(delete_file, file_path)
-
             # Replace `your-app-name.onrender.com` with your Render URL
             public_url = f"https://your-app-name.onrender.com/files/{file_name}"
             return {
                 "file_name": file_name,
                 "file_url": public_url,
-                "message": "File will be deleted automatically after 2 minutes."
+                "message": "File will be available for 2 minutes after it is accessed."
             }
         else:
             return JSONResponse(
@@ -94,12 +89,22 @@ async def get_file_url(field_name: str = Query(..., description="Name of the Air
 
 
 @app.get("/files/{file_name}")
-async def serve_file(file_name: str):
+async def serve_file(file_name: str, background_tasks: BackgroundTasks):
     """
-    Serves a file via a public URL.
+    Serves a file via a public URL and schedules its deletion 2 minutes after it is accessed.
     """
     file_path = os.path.join(OUTPUT_DIR, file_name)
     if os.path.exists(file_path):
+        # Schedule the file for deletion after it is served
+        background_tasks.add_task(delete_file_after_delay, file_path)
         return FileResponse(file_path, media_type="application/octet-stream", filename=file_name)
     else:
         raise HTTPException(status_code=404, detail="File not found")
+
+
+def delete_file_after_delay(file_path: str):
+    """
+    Deletes the file after a delay of 2 minutes.
+    """
+    time.sleep(120)  # Wait for 2 minutes
+    delete_file(file_path)
