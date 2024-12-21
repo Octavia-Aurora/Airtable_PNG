@@ -1,7 +1,8 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, BackgroundTasks
 from fastapi.responses import JSONResponse, FileResponse
 import os
 import requests
+import time
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -54,19 +55,34 @@ def save_file(url, file_name):
     return file_path
 
 
+def delete_file(file_path: str):
+    """
+    Deletes the file from the local server.
+    """
+    time.sleep(120)  # Wait for 2 minutes (120 seconds)
+    if os.path.exists(file_path):
+        os.remove(file_path)
+        print(f"Deleted file: {file_path}")
+
+
 @app.get("/get-file/")
-async def get_file_url(field_name: str = Query(..., description="Name of the Airtable field containing the file")):
+async def get_file_url(field_name: str = Query(..., description="Name of the Airtable field containing the file"),
+                       background_tasks: BackgroundTasks = BackgroundTasks()):
     """
     Endpoint to retrieve a file from Airtable and provide a public URL to access it.
     """
     try:
         file_path, file_name = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
         if file_path and os.path.exists(file_path):
+            # Add the file deletion task
+            background_tasks.add_task(delete_file, file_path)
+
             # Replace `your-app-name.onrender.com` with your Render URL
-            public_url = f"https://airtable-png.onrender.com/files/{file_name}"
+            public_url = f"https://your-app-name.onrender.com/files/{file_name}"
             return {
                 "file_name": file_name,
-                "file_url": public_url
+                "file_url": public_url,
+                "message": "File will be deleted automatically after 2 minutes."
             }
         else:
             return JSONResponse(
