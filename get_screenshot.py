@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import FileResponse
-import requests
+from fastapi.responses import JSONResponse, FileResponse
 import os
+import requests
 
 # Initialize FastAPI app
 app = FastAPI()
@@ -18,6 +18,9 @@ if not AIRTABLE_API_KEY or not BASE_ID or not TABLE_NAME:
 
 
 def download_file_from_record(base_id, table_name, field_name):
+    """
+    Downloads a file from Airtable and saves it locally.
+    """
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
     url = f"https://api.airtable.com/v0/{base_id}/{table_name}"
     response = requests.get(url, headers=headers)
@@ -32,11 +35,14 @@ def download_file_from_record(base_id, table_name, field_name):
                     file_name = attachment.get("filename", "unknown_file")
                     if file_url:
                         file_path = save_file(file_url, file_name)
-                        return file_path
-    return None
+                        return file_path, file_name
+    return None, None
 
 
 def save_file(url, file_name):
+    """
+    Saves the file locally after downloading it.
+    """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(OUTPUT_DIR, file_name)
 
@@ -49,16 +55,35 @@ def save_file(url, file_name):
 
 
 @app.get("/get-file/")
-async def get_file(field_name: str = Query(..., description="Name of the Airtable field containing the file")):
+async def get_file_url(field_name: str = Query(..., description="Name of the Airtable field containing the file")):
     """
-    Endpoint to retrieve a file from Airtable and serve it to the user.
+    Endpoint to retrieve a file from Airtable and provide a public URL to access it.
     """
     try:
-        file_path = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
+        file_path, file_name = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
         if file_path and os.path.exists(file_path):
-            # Return the file for download
-            return FileResponse(file_path, media_type="application/octet-stream", filename=os.path.basename(file_path))
+            # Replace `your-app-name.onrender.com` with your Render URL
+            public_url = f"https://airtable-png.onrender.com/files/{file_name}"
+            return {
+                "file_name": file_name,
+                "file_url": public_url
+            }
         else:
-            raise HTTPException(status_code=404, detail="File not found")
+            return JSONResponse(
+                status_code=404,
+                content={"error": "File not found", "message": f"No file found for field '{field_name}'."}
+            )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/files/{file_name}")
+async def serve_file(file_name: str):
+    """
+    Serves a file via a public URL.
+    """
+    file_path = os.path.join(OUTPUT_DIR, file_name)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="application/octet-stream", filename=file_name)
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
