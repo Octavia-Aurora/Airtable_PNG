@@ -22,7 +22,7 @@ def download_file_from_record(base_id, table_name, field_name):
     Fetch records from Airtable and download the file from the specified field.
     """
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    url = f"https://api.airtable.com/v0/{base_id}/{table_name}"
+    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}"
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
