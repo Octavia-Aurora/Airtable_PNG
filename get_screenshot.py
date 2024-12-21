@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Query, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse
 import requests
 import os
 
@@ -18,11 +18,8 @@ if not AIRTABLE_API_KEY or not BASE_ID or not TABLE_NAME:
 
 
 def download_file_from_record(base_id, table_name, field_name):
-    """
-    Fetch records from Airtable and download the file from the specified field.
-    """
     headers = {"Authorization": f"Bearer {AIRTABLE_API_KEY}"}
-    url = f"https://api.airtable.com/v0/{BASE_ID}/{TABLE_NAME}"
+    url = f"https://api.airtable.com/v0/{base_id}/{table_name}"
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
@@ -40,9 +37,6 @@ def download_file_from_record(base_id, table_name, field_name):
 
 
 def save_file(url, file_name):
-    """
-    Save the file locally after downloading it from the given URL.
-    """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     file_path = os.path.join(OUTPUT_DIR, file_name)
 
@@ -62,7 +56,8 @@ async def get_file(field_name: str = Query(..., description="Name of the Airtabl
     try:
         file_path = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
         if file_path and os.path.exists(file_path):
-            return FileResponse(file_path, filename=os.path.basename(file_path), as_attachment=True)
+            # Return the file for download
+            return FileResponse(file_path, media_type="application/octet-stream", filename=os.path.basename(file_path))
         else:
             raise HTTPException(status_code=404, detail="File not found")
     except Exception as e:
