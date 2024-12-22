@@ -73,7 +73,7 @@ async def get_file_url(field_name: str = Query(..., description="Name of the Air
         file_path, file_name = download_file_from_record(BASE_ID, TABLE_NAME, field_name)
         if file_path and os.path.exists(file_path):
             # Replace `your-app-name.onrender.com` with your Render URL
-            public_url = f"https://your-app-name.onrender.com/files/{file_name}"
+            public_url = f"https://airtable-png.onrender.com/files/{file_name}"
             return {
                 "file_name": file_name,
                 "file_url": public_url,
